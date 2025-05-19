@@ -1,0 +1,250 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Vapi Outbound Calling Rules
+
+## Authorization Requirements
+- Valid Vapi account required
+- Authorization token must be provided for all API calls
+
+## Storage Configuration
+### Supabase S3 Storage Requirements
+- Configuration in Cloud Providers section required
+- Mandatory Settings:
+  - Bucket Name: Valid Supabase Storage bucket
+  - Storage Region: Valid Supabase project region
+  - Storage Endpoint: Supabase Storage endpoint URL
+  - Storage Access Key ID: Valid access key
+  - Storage Secret Access Key: Associated secret key
+- Optional Settings:
+  - Bucket Path Prefix: Custom path for recordings
+
+## API Request Format
+### Headers
+- Authorization: Bearer token required
+- Content-Type: application/json
+
+### Core Parameters
+- name (optional, ≤40 characters): Reference name for the call
+- type: Type of call (e.g., "outboundPhoneCall")
+- transport: Call transport configuration
+
+### Identification Options
+1. Assistant:
+   - assistantId: ID of existing assistant
+   - assistant: Transient assistant configuration
+2. Squad:
+   - squadId: ID of existing squad
+   - squad: Transient squad configuration
+3. Workflow:
+   - workflowId: ID of existing workflow
+   - workflow: Transient workflow configuration
+
+### Phone Number Options
+- phoneNumberId: ID of existing phone number
+- phoneNumber: Transient phone number configuration
+
+### Customer Options
+- customerId: ID of existing customer
+- customer: Transient customer configuration
+- customers: Array for batch calling
+## Configuration Examples
+
+```json
+// Basic Outbound Call
+{
+    "assistantId": "assistant-id",
+    "phoneNumberId": "phone-number-id",
+    "customer": {
+        "number": "+11231231234"
+    }
+}
+
+// Scheduled Call with Analysis
+{
+    "assistantId": "assistant-id",
+    "phoneNumberId": "phone-number-id",
+    "customer": {
+        "number": "+11231231234"
+    },
+    "schedulePlan": {
+        "earliestAt": "2025-05-30T00:00:00Z"
+    },
+    "analysisPlan": {
+        "summaryPrompt": "Custom summary prompt",
+        "structuredDataSchema": {
+            "type": "object",
+            "properties": {
+                "field1": { "type": "string" }
+            }
+        }
+    }
+}
+
+// Full Assistant Configuration
+{
+    "assistant": {
+        "transcriber": {
+            "provider": "deepgram",
+            "language": "en",
+            "confidenceThreshold": 0.4
+        },
+        "model": {
+            "provider": "openai",
+            "model": "gpt-4",
+            "temperature": 1.0,
+            "maxTokens": 150
+        },
+        "voice": {
+            "provider": "openai",
+            "voiceId": "onyx",
+            "speed": 1.0
+        },
+        "firstMessage": "Hello! How can I help you today?",
+        "endCallMessage": "Thank you for your time.",
+        "voicemailMessage": "Please leave a message",
+        "silenceTimeoutSeconds": 30,
+        "maxDurationSeconds": 600
+    }
+}
+```
+
+## Phone Number Requirements
+- Must have either:
+  - Imported phone number from supported providers
+  - Free Vapi number (limited to domestic calls)
+- Phone number ID must be specified via 'phoneNumberId'
+- International calls not supported with free Vapi numbers
+- Daily call limits apply to free numbers
+- For unlimited scaling, import numbers from:
+  - Twilio
+  - Vonage
+  - Telnyx
+
+### Phone Number Hooks
+- Hooks are defined in the 'hooks' array of phone number configuration
+- Event Support:
+  - 'call.ringing': Triggered when call is ringing
+- Action Types:
+  - 'say': Play specified message
+  - 'transfer': Forward call to another destination
+- Transfer Destinations:
+  - Phone numbers (requires number and optional callerId)
+  - SIP destinations (requires sipUri)
+- Common Use Cases:
+  - Disabling inbound calling
+  - Custom call routing
+  - Automated responses
+
+## Live Call Control
+- Control features accessed via controlUrl from /call endpoint
+- Listen features accessed via listenUrl from /call endpoint
+
+### Control Features
+1. Say Message:
+   - Inject dynamic messages during call
+   - Option to end call after message
+2. Add Message:
+   - Add to conversation history
+   - Optional response triggering
+3. Assistant Control:
+   - Mute/unmute assistant
+   - Trigger first message
+4. End Call:
+   - Programmatically terminate call
+5. Transfer Call:
+   - Redirect to different destination
+   - Optional transfer message
+
+### Call Listen
+- Real-time audio streaming via WebSocket
+- Binary audio data access
+- Options for processing or saving audio
+
+## Assistant Requirements
+- Must specify either:
+  - Saved assistant via 'assistantId'
+  - Transient assistant via 'assistant' field
+
+### Assistant Configuration
+- Transcriber configuration:
+  - Provider must be specified (e.g., "deepgram")
+  - Keywords can be defined with boost values (e.g., "Keyword:1")
+- Model configuration:
+  - Provider must be specified (e.g., "openai")
+  - Model name required (e.g., "gpt-4")
+  - System messages must be defined in messages array
+- Voice configuration:
+  - Provider must be specified
+  - VoiceId must be valid for chosen provider
+- Optional configurations:
+  - voicemailMessage: Message played if call goes to voicemail
+  - firstMessage: Initial message when call connects
+  - endCallMessage: Final message before ending call
+  - endCallFunctionEnabled: Boolean to enable call ending
+  - recordingEnabled: Boolean for call recording
+
+### Call Analysis Configuration
+- Analysis Plan Options:
+  1. Summary Configuration:
+     - Customizable summary prompt
+     - Disable option available
+  2. Structured Data:
+     - Custom data extraction prompt
+     - JSON Schema for data format
+  3. Success Evaluation:
+     - Custom evaluation prompt
+     - Multiple rubric options:
+       - NumericScale (1-10)
+       - DescriptiveScale
+       - Checklist
+       - Matrix
+       - PercentageScale
+       - LikertScale
+       - AutomaticRubric
+       - PassFail
+
+## Function Calling Rules
+- Tools must be defined in assistant configuration
+- Each tool requires:
+  - name: Unique identifier for the function
+  - description: Clear description of function purpose
+  - parameters: JSON Schema object defining expected parameters
+- Server URL must be configured in Vapi Dashboard
+- Server must handle function calls with:
+  - Request format: {"message": {"type": "function-call", "functionCall": {...}}}
+  - Response format: {"result": "status message"}
+
+## Call Scheduling Rules
+- Scheduling requires 'schedulePlan' parameter
+- 'earliestAt': Required ISO date-time for earliest call attempt
+- 'latestAt': Optional ISO date-time for latest call attempt
+- All scheduled resources must exist at time of call
+- For saved assistants:
+  - Latest version will be used at call time
+  - Call fails if assistant is deleted
+- For static version:
+  - Use transient assistant through 'assistant' parameter
+
+## Batch Calling Rules
+- Use 'customers' array for multiple recipients
+- Each customer must have valid 'number' field
+- Customer-specific assistant overrides require separate API calls
+- Free Vapi numbers have daily outbound call limits
+- Can combine with schedulePlan for scheduled batch calls
+
+## Legal Compliance
+- FCC consent required for automated dialing
+- Must comply with Telemarketing Sales Rule
+- Automated calls without consent are prohibited
+- Recording requires explicit user consent
+
+## API Format Requirements
+- All phone numbers must be in E.164 format
+- Date-time values must be in ISO format
+- All IDs must be valid and existing at call time
+- Function parameters must follow defined JSON Schema
+- Hook configurations must follow specified format
+- WebSocket connections required for live call features 

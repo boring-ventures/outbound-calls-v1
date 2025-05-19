@@ -19,17 +19,99 @@ enum UserRole {
   SUPERADMIN
 }
 
+enum CallStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum BatchUploadStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum CallItemStatus {
+  PENDING
+  SCHEDULED
+  COMPLETED
+  FAILED
+}
+
 model Profile {
-  id            String               @id @default(cuid())
-  userId        String               @unique
+  id            String        @id @default(cuid())
+  userId        String        @unique
   avatarUrl     String?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  active        Boolean              @default(true)
-  firstName     String?              @map("first_name")
-  lastName      String?              @map("last_name")
-  role          UserRole             @default(USER)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  active        Boolean       @default(true)
+  firstName     String?       @map("first_name")
+  lastName      String?       @map("last_name")
+  role          UserRole      @default(USER)
+  calls         Call[]
+  batchUploads  BatchUpload[]
 
   @@index([userId])
   @@map("profiles")
+}
+
+model Call {
+  id           String      @id @default(cuid())
+  vapiCallId   String      @unique
+  status       CallStatus  @default(PENDING)
+  phoneNumber  String
+  assistantId  String
+  recordingUrl String?
+  transcript   String?     @db.Text
+  summary      String?     @db.Text
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  profile      Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId    String
+  callItems    CallItem[]
+
+  @@index([profileId])
+  @@index([vapiCallId])
+  @@map("calls")
+}
+
+model BatchUpload {
+  id              String            @id @default(cuid())
+  filename        String
+  totalCalls      Int
+  successfulCalls Int               @default(0)
+  failedCalls     Int               @default(0)
+  status          BatchUploadStatus @default(PENDING)
+  assistantId     String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  profile         Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId       String
+  callItems       CallItem[]
+
+  @@index([profileId])
+  @@map("batch_uploads")
+}
+
+model CallItem {
+  id             String         @id @default(cuid())
+  phoneNumber    String
+  status         CallItemStatus @default(PENDING)
+  errorMessage   String?        @db.Text
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  
+  batchUpload    BatchUpload    @relation(fields: [batchUploadId], references: [id], onDelete: Cascade)
+  batchUploadId  String
+  call           Call?          @relation(fields: [callId], references: [id])
+  callId         String?
+
+  @@index([batchUploadId])
+  @@index([callId])
+  @@map("call_items")
 }

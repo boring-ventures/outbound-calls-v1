@@ -31,16 +31,6 @@ export const sidebarData: SidebarData = {
       logo: Command,
       plan: "Vite + ShadcnUI",
     },
-    {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
   ],
   navGroups: [
     {
@@ -50,27 +40,6 @@ export const sidebarData: SidebarData = {
           title: "Dashboard",
           url: "/",
           icon: LayoutDashboard,
-        },
-        {
-          title: "Tasks",
-          url: "/tasks",
-          icon: CheckSquare,
-        },
-        {
-          title: "Apps",
-          url: "/apps",
-          icon: AppWindow,
-        },
-        {
-          title: "Chats",
-          url: "/chats",
-          badge: "3",
-          icon: MessageSquare,
-        },
-        {
-          title: "Users",
-          url: "/users",
-          icon: Users,
         },
       ],
     },

@@ -1,0 +1,149 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Vapi Web SDK Rules
+
+## Installation Requirements
+- Package must be installed via npm, yarn, or pnpm
+- Valid package versions must be specified in package.json
+- @vapi-ai/web package is required
+
+## Authorization Requirements
+- Valid Vapi account required
+- Must provide either:
+  - Public API key from Vapi Dashboard
+  - Generated JWT token (for backend authentication)
+
+## SDK Initialization
+### Constructor Requirements
+- Must instantiate Vapi class with valid credentials
+- Format: `const vapi = new Vapi("public-key-or-jwt")`
+
+## Assistant Configuration
+### Required Parameters
+1. Assistant Identification:
+   - Must provide either:
+     - Existing assistant ID
+     - Complete assistant configuration object
+
+### Assistant Configuration Object
+- Transcriber settings:
+  - provider (required)
+  - model (required)
+  - language (required)
+- Model settings:
+  - provider (required)
+  - model (required)
+  - messages array (required for system prompts)
+- Voice settings:
+  - provider (required)
+  - voiceId (required)
+- Optional settings:
+  - name
+  - firstMessage
+  - endCallMessage
+  - recordingEnabled
+
+## Call Control Methods
+### Start Call
+- Must use `.start()` method
+- Parameters:
+  - assistantId (string) OR
+  - assistantConfig (object)
+- Returns Promise resolving to call object
+
+### Send Messages
+- Must use `.send()` method
+- Required format:
+  ```javascript
+  {
+    type: "add-message",
+    message: {
+      role: "system" | "user" | "assistant" | "tool" | "function",
+      content: string
+    }
+  }
+  ```
+
+### Stop Call
+- Must use `.stop()` method
+- No parameters required
+- Closes connection and stops recording
+
+### Mute Control
+- Check mute status: `.isMuted()`
+- Set mute status: `.setMuted(boolean)`
+### Speech Control
+- Use `.say(message, endCallAfterSpoken?)` for speech
+- Parameters:
+  - message (string, required)
+  - endCallAfterSpoken (boolean, optional)
+
+## Event Handling Requirements
+### Required Event Listeners
+- Must implement error handling:
+  ```javascript
+  vapi.on("error", (e) => {
+    // Error handling logic
+  });
+  ```
+
+### Available Events
+1. Call Status Events:
+   - "call-start"
+   - "call-end"
+2. Speech Events:
+   - "speech-start"
+   - "speech-end"
+3. Audio Events:
+   - "volume-level"
+4. Message Events:
+   - "message"
+
+## Assistant Override Rules
+- Override configuration requires assistantOverrides object
+- Valid override fields:
+  - transcriber settings
+  - recordingEnabled
+  - variableValues
+
+## Security Requirements
+- Public keys must be kept secure
+- JWT tokens must be generated securely
+- API keys must not be exposed in client-side code
+- Must implement proper error handling
+- Must handle WebSocket connection security
+
+## Browser Compatibility
+- Must support modern browsers
+- Must handle WebRTC requirements
+- Must handle audio input/output permissions
+- Must implement proper fallbacks
+
+## Performance Requirements
+- Must handle WebSocket reconnection
+- Must manage memory for audio streams
+- Must implement proper cleanup on call end
+- Must handle concurrent calls appropriately
+
+## Legal Compliance
+- Must obtain user consent for recording
+- Must handle audio data according to privacy laws
+- Must implement proper data retention policies
+- Must provide clear user notifications for recording
+
+## Error Handling Requirements
+- Must handle connection failures
+- Must handle audio permission denials
+- Must handle invalid credentials
+- Must handle assistant configuration errors
+- Must provide meaningful error messages
+
+## Documentation Requirements
+- Must maintain updated README
+- Must document all public methods
+- Must provide usage examples
+- Must document error codes
+- Must maintain changelog 

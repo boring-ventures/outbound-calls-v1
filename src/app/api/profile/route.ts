@@ -1,32 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
-import prisma from "@/lib/prisma";
+import { auth } from "@/lib/auth-server";
+import { db } from "@/lib/db";
 
 // GET: Fetch profile for the current authenticated user
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    // Get the current user's session using our auth-server implementation
+    const session = await auth();
 
-    // Get the current user's session
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (sessionError || !session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const userId = session.user.id;
 
     // Fetch profile from the database
-    const profile = await prisma.profile.findUnique({
+    const profile = await db.profile.findUnique({
       where: { userId },
     });
 
     if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+      // If profile doesn't exist, create one automatically
+      const newProfile = await db.profile.create({
+        data: {
+          userId,
+          active: true,
+          role: "USER",
+        },
+      });
+
+      return NextResponse.json(newProfile);
     }
 
     return NextResponse.json(profile);
@@ -42,15 +45,10 @@ export async function GET() {
 // PUT: Update profile for the current authenticated user
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    // Get the current user's session using our auth-server implementation
+    const session = await auth();
 
-    // Get the current user's session
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (sessionError || !session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
@@ -58,14 +56,35 @@ export async function PUT(request: NextRequest) {
     const data = await request.json();
     const { firstName, lastName, avatarUrl, active } = data;
 
+    // Find existing profile
+    const existingProfile = await db.profile.findUnique({
+      where: { userId },
+    });
+
+    if (!existingProfile) {
+      // Create profile if it doesn't exist
+      const newProfile = await db.profile.create({
+        data: {
+          userId,
+          firstName,
+          lastName,
+          avatarUrl,
+          active: active !== undefined ? active : true,
+          role: "USER",
+        },
+      });
+
+      return NextResponse.json(newProfile);
+    }
+
     // Update profile in the database
-    const updatedProfile = await prisma.profile.update({
+    const updatedProfile = await db.profile.update({
       where: { userId },
       data: {
         firstName,
         lastName,
         avatarUrl,
-        active,
+        active: active !== undefined ? active : existingProfile.active,
       },
     });
 
@@ -88,7 +107,7 @@ export async function POST(request: NextRequest) {
     // If userId is provided directly (during signup flow)
     if (userId) {
       // Check if profile already exists
-      const existingProfile = await prisma.profile.findUnique({
+      const existingProfile = await db.profile.findUnique({
         where: { userId },
       });
 
@@ -100,7 +119,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Create profile in the database
-      const newProfile = await prisma.profile.create({
+      const newProfile = await db.profile.create({
         data: {
           userId,
           firstName,
@@ -115,22 +134,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Normal flow requiring authentication
-    const supabase = createRouteHandlerClient({ cookies });
+    const session = await auth();
 
-    // Get the current user's session
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (sessionError || !session) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const authenticatedUserId = session.user.id;
 
     // Check if profile already exists
-    const existingProfile = await prisma.profile.findUnique({
+    const existingProfile = await db.profile.findUnique({
       where: { userId: authenticatedUserId },
     });
 
@@ -142,7 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create profile in the database
-    const newProfile = await prisma.profile.create({
+    const newProfile = await db.profile.create({
       data: {
         userId: authenticatedUserId,
         firstName,
