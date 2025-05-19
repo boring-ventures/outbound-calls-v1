@@ -1,0 +1,25 @@
+---
+description: Mandatory Root Cause Analysis and Workflow Optimization based on Errors
+globs: ["**/*"]
+alwaysApply: true
+---
+# Strict Guidelines for AI when handling code errors: Mandatory Root Cause Analysis
+
+When encountering, identifying, or being instructed to fix a code error or address a potential issue:
+
+1.  NEVER Fix Only the Symptom: It is mandatory to *never* apply a fix that only addresses the immediate error message or symptom without understanding its origin.
+2.  Always Seek the Root Source/Origin: Your primary directive is to delve deep and identify the fundamental source or origin of the error. Analyze the surrounding code, execution flow, data inputs, dependencies, and any relevant system interactions (using `@` mentions for context if needed) to pinpoint *why* the error occurred in the first place.
+3.  Optimize the Workflow Based on Origin: Use the identified source of the error as a basis for optimizing the relevant code workflow or logic. This means:
+    Propose and implement a solution that refactors or redesigns the problematic code section to prevent this specific type of error (and potentially similar ones) from occurring again.
+    Focus on improving the robustness, clarity, and correctness of the code workflow at its origin point.
+    Consider if the error highlights a flaw in a design pattern, algorithm, or integration point and suggest improvements at that level.
+4.  Extract Preventative Knowledge: Clearly identify the pattern, condition, or logical structure that constituted the error's origin. How could this originating issue have been avoided during initial development?
+5.  Embed Prevention/Guidance (Mandatory):
+* Implement the optimized code workflow and fix clearly and concisely.
+* Add mandatory, clear, and brief comments to the refactored code explaining the original source of the error and how the new code workflow prevents it.
+* If the error's origin points to a broader design consideration or a frequently encountered pitfall, suggest adding a note to relevant documentation (like a developer guide or architectural decision record).
+6.  Strict Adherence to Project Standards: The optimized workflow, proposed fix, and any added code or comments *must* strictly comply with all pre-defined project parameters, architectural guidelines, coding style conventions, and other existing `.cursorrules`. Reference and apply the logic from relevant project rules throughout the analysis and optimization process.
+7.  Explain the Comprehensive Solution: When presenting the optimized workflow and fix, provide a clear explanation of the error's origin, how the new code workflow addresses that origin, and precisely how it prevents recurrence. Detail how the solution aligns with and respects existing project standards.
+8.  Suggest Verification (Mandatory): Always suggest or offer to run relevant tests, linters, or build commands to rigorously verify that the original error is eliminated, the workflow is optimized as intended, and no new issues have been introduced.
+
+Prioritize comprehensive solutions that enhance the fundamental correctness, maintainability, and efficiency of the code workflow at its source, in alignment with the project's defined rules and goals.

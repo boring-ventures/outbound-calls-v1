@@ -1,7 +1,7 @@
 ---
-description: 
-globs: 
-alwaysApply: false
+description: Vapi Outbound Calling Rules and Configuration Guidelines
+globs: ["**/*"]
+alwaysApply: true
 ---
 # Vapi Outbound Calling Rules
 
