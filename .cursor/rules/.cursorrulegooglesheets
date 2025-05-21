@@ -1,0 +1,56 @@
+---
+Rule Type: Auto Attached
+Glob Pattern: "**/*.js", "**/*.ts", "**/*.tsx", "**/*.py", "**/*.json"
+---
+
+# Vapi Google Sheets Integration Guidelines
+
+## Overview
+
+This rule provides guidelines for the AI when interacting with Vapi's Google Sheets integration tool: `google.sheets.row.append`. The primary goal is to ensure the AI correctly identifies user intent for data entry, gathers all necessary information, and uses the tool with valid parameters to add new rows to Google Sheets.
+
+## Tool Usage Principles
+
+When a user expresses intent to record information, log data, or add entries to a spreadsheet, follow these steps:
+
+1.  **Identify Data Collection Intent:** Recognize scenarios where the user is providing structured information that should be recorded (e.g., "Take down this customer's feedback," "Log this sales lead," "Record these survey responses").
+2.  **Information Gathering:**
+    * Identify the `spreadsheetId` (the ID of the target Google Sheet). This is a static configuration value for the tool, but the AI should be aware it's a critical component.
+    * Identify the `range` (the sheet name or specific range where data should be added, e.g., "Sheet1", "FeedbackData!A:Z"). This is also typically a static configuration.
+    * Crucially, identify the `values` to be added. This *must be an array* corresponding to the columns in the target sheet. The AI needs to understand the expected column order.
+3.  **Data Formatting:** Ensure that the `values` array contains data properly formatted for the Google Sheet. If, for example, a column expects a number, ensure the value is a number. If a timestamp is required, generate an appropriate timestamp.
+4.  **Confirmation Before Action:** Always confirm with the user all the gathered information and their intent to add it to the spreadsheet *before* invoking the `google.sheets.row.append` tool. This is a critical best practice for data integrity.
+5.  **Error Handling:** If the tool call fails (e.g., invalid `spreadsheetId`, `range`, or permission issues), provide a polite fallback response to the user, indicating that the data could not be recorded and suggesting they try again or contact support.
+
+## Specific Tool Description and Invocation
+
+### 1. `google.sheets.row.append`
+
+**Description:** Use this tool to add a new row of data to a specified Google Sheet. This tool is solely for *appending* new data; it cannot read existing data or modify rows.
+**When to Invoke:** When the user explicitly wants to record new data into a spreadsheet, and all necessary `values` for a row have been collected and confirmed.
+
+**Parameters:**
+* `spreadsheetId`: **Required**. The unique ID of the Google Sheet. (This will be configured in Vapi, but the AI should know it's a fixed identifier for the target sheet).
+* `range`: **Required**. The sheet name (e.g., "Sheet1") or a specific range (e.g., "Feedback!A:Z") where the row should be appended. Using just the sheet name appends to the next empty row.
+* `values`: **Required**. An array representing the data for the new row. Each element in the array corresponds to a column in the order expected by the spreadsheet.
+
+**Example Conversation Flow (AI Perspective - Customer Feedback Scenario):**
+User: "I'd like to provide feedback on my call."
+AI: "Certainly. First, what rating would you give, from 1 to 5 stars?"
+User: "4 stars."
+AI: "Thank you. Do you have any specific comments about your experience?"
+User: "Yes, the agent was very helpful but the wait time was too long."
+AI: "Understood. Any suggestions for improvement?"
+User: "Maybe offer a callback option."
+AI: "Alright. So, you're giving 4 stars, with comments: 'agent was very helpful but the wait time was too long' and suggestion: 'offer a callback option'. Is that correct before I add it to our feedback sheet?"
+User: "Yes, that's correct."
+AI: (Internal: Identify `spreadsheetId` and `range` from assistant config. Construct `values` array: `[CurrentTimestamp, 4, "agent was very helpful but the wait time was too long", "offer a callback option"]`. Invoke `google.sheets.row.append` with these parameters).
+AI: (Response based on tool output) "Thank you for your feedback! It has been successfully recorded."
+
+## Important Notes for AI
+
+* **Column Order:** The `values` array *must* match the exact order of columns in the target Google Sheet. If the sheet has columns A, B, C, then `values` should be `[value_for_A, value_for_B, value_for_C]`.
+* **Single-Purpose Tool:** Remember this tool *only* appends new rows. It cannot read, modify, or delete existing data. Do not attempt to use it for those purposes.
+* **Prompt for Missing Data:** If the user's input doesn't provide all the necessary pieces of information for a complete row (e.g., a "rating" is missing but expected by the sheet structure), politely ask for the missing details before proceeding.
+* **Time-Sensitive Data:** If the sheet requires a timestamp, always include a precise and current timestamp in the `values` array when the data is recorded.
+* **Be Polite and Confirm:** Maintain a polite and helpful tone, and always confirm the data with the user before committing it to the spreadsheet.

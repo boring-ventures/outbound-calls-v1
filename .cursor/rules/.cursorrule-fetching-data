@@ -1,0 +1,49 @@
+---
+description: |
+  This rule strictly enforces correct Supabase authentication patterns in Next.js App Router to eliminate `AuthSessionMissingError` and "cookies() should be awaited". It ensures proper client instantiation, middleware setup, and secure API route handling, prioritizing the single source of truth for user sessions.
+type: Always # This rule is fundamental and must always be considered.
+glob: |
+  **/*.ts
+  **/*.tsx
+  **/middleware.ts
+  **/api/**/*.ts
+---
+
+# Strict Supabase Authentication Fixes for Next.js App Router
+
+This rule addresses persistent Supabase authentication issues in Next.js App Router, specifically focusing on the `AuthSessionMissingError`, `cookies() should be awaited` errors, 404s on profile API, and `Multiple GoTrueClient instances` warnings. Cursor **MUST** prioritize these instructions to ensure a robust authentication flow.
+
+---
+
+## **1. Unwavering Enforcement of `await cookies()`**
+
+The error `cookies() should be awaited before using its value` indicates a fundamental Next.js App Router violation. This MUST be fixed wherever it occurs.
+
+**Instruction:**
+- **SCAN ALL `.tsx` and `.ts` files, especially in Server Components, Layouts, and Route Handlers.**
+- **Any direct or indirect call to `cookies()` from `next/headers` MUST be preceded by `await`.**
+- This applies to `auth-provider.tsx`, layout files (e.g., `layout.tsx`), and any page files acting as Server Components.
+
+**Example of Correction:**
+
+**Incorrect:**
+```typescript
+// Somewhere in auth-provider.tsx or a Server Component
+import { cookies } from 'next/headers';
+const cookieStore = cookies(); // ERROR: Missing await!
+
+// In auth-provider.tsx, layout.tsx, or any Server Component
+import { cookies } from 'next/headers';
+import { createServerComponentClient } from '@supabase/ssr';
+import type { Database } from '@/lib/database.types'; // Ensure this path is correct
+
+// This function must be async if it calls cookies()
+async function getSupabaseServerComponent() {
+  const cookieStore = cookies(); // REQUIRED: AWAIT HERE
+  return createServerComponentClient<Database>({ cookies: () => cookieStore });
+}
+
+// Usage:
+// Inside an async Server Component, Layout, or function called by them:
+// const supabase = await getSupabaseServerComponent();
+// const { data: { session } } = await supabase.auth.getSession();

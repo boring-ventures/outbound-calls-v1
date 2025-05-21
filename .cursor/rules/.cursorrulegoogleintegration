@@ -1,0 +1,84 @@
+---
+Rule Type: Auto Attached
+Glob Pattern: "**/*.js", "**/*.ts", "**/*.tsx", "**/*.py", "**/*.json"
+---
+
+# Vapi Google Calendar Integration Guidelines
+
+## Overview
+
+This rule provides guidelines for the AI when interacting with Vapi's Google Calendar integration tools: `google.calendar.event.create` (for scheduling events) and `google.calendar.availability.check` (for checking free/busy times).
+
+The primary goal is to ensure the AI correctly identifies user intent related to scheduling and availability, gathers all necessary information, and uses the appropriate Vapi tool with valid parameters.
+
+## Tool Usage Principles
+
+When a user expresses intent to schedule an appointment or check availability, follow these steps:
+
+1.  **Prioritize Availability Check:** Always use the `google.calendar.availability.check` tool *before* attempting to create an event with `google.calendar.event.create`. This prevents scheduling conflicts.
+2.  **Information Gathering:**
+    * For **scheduling appointments**, gather:
+        * `summary` (purpose of the appointment, e.g., "dental cleaning", "meeting with John Doe").
+        * `startDateTime` (exact start date and time in ISO 8601 format).
+        * `endDateTime` (exact end date and time in ISO 8601 format).
+        * `attendees` (a list of email addresses if others need to be invited).
+        * `timeZone` (the timezone for the event; default to user's local timezone or UTC if not specified).
+        * `calendarId` (if a specific calendar is requested; otherwise, use the primary calendar).
+    * For **checking availability**, gather:
+        * `startDateTime` (start of the time range to check, in ISO 8601 format).
+        * `endDateTime` (end of the time range to check, in ISO 8601 format).
+        * `timeZone` (the timezone for the check; default to user's local timezone or UTC if not specified).
+        * `calendarId` (if a specific calendar is requested; otherwise, use the primary calendar).
+3.  **ISO 8601 Format:** All date and time fields (`startDateTime`, `endDateTime`) **must** be provided in ISO 8601 format (e.g., `YYYY-MM-DDTHH:mm:ssZ` or `YYYY-MM-DDTHH:mm:ss+/-HH:MM`). If the user provides a natural language date/time, convert it to this format.
+4.  **Default Values:**
+    * `timeZone` defaults to `UTC` if not explicitly provided or inferred.
+    * `calendarId` defaults to the user's primary calendar if not specified.
+5.  **Event Duration:** If a user specifies a purpose for an appointment but not an explicit end time, assume a default duration of **30 minutes** for the `google.calendar.event.create` tool.
+6.  **Confirmation:** After successfully checking availability or creating an event, provide a clear confirmation message to the user.
+7.  **Error Handling:** If a tool call fails or returns an error, provide a polite fallback response to the user, indicating the failure and suggesting alternative actions or a retry.
+
+## Specific Tool Descriptions and Invocations
+
+### 1. `google.calendar.availability.check`
+
+**Description:** Use this tool to determine free/busy slots on a Google Calendar within a specified time range.
+**When to Invoke:** When the user asks "Am I free on...", "What's my availability for...", "Can we schedule X at Y time?", or similar phrases indicating a need to check existing schedule.
+
+**Parameters:**
+* `startDateTime`: Required. The start of the time range to check.
+* `endDateTime`: Required. The end of the time range to check.
+* `timeZone`: Optional. Timezone for the check (e.g., "America/New_York").
+* `calendarId`: Optional. Specific calendar ID.
+
+**Example Conversation Flow (AI Perspective):**
+User: "Am I free tomorrow afternoon for a meeting?"
+AI: (Internal: Identify `startDateTime` as tomorrow afternoon, `endDateTime` as tomorrow evening. Invoke `google.calendar.availability.check` with these parameters).
+AI: (Response based on tool output) "Yes, you appear to be free between 2 PM and 5 PM tomorrow."
+
+### 2. `google.calendar.event.create`
+
+**Description:** Use this tool to create a new event on a Google Calendar.
+**When to Invoke:** After checking availability and when the user confirms they want to schedule an appointment, meeting, or add an event to their calendar.
+
+**Parameters:**
+* `summary`: Required. The title or description of the event.
+* `startDateTime`: Required. The start date and time of the event.
+* `endDateTime`: Required. The end date and time of the event.
+* `attendees`: Optional. A list of email addresses for attendees.
+* `timeZone`: Optional. Timezone for the event.
+* `calendarId`: Optional. Specific calendar ID.
+
+**Example Conversation Flow (AI Perspective):**
+User: "Can you schedule a dental cleaning for me next Tuesday at 10 AM?"
+AI: (Internal: Identify `summary` as "dental cleaning", `startDateTime` as next Tuesday 10 AM. Calculate `endDateTime` as 10:30 AM (30-minute default). First, invoke `google.calendar.availability.check` for that slot).
+AI: (If available) "Okay, I'm checking your availability for next Tuesday at 10 AM for a dental cleaning. Please confirm if that's correct."
+User: "Yes, that's fine."
+AI: (Internal: Invoke `google.calendar.event.create` with all gathered parameters).
+AI: (Response based on tool output) "Great, I've scheduled your dental cleaning for next Tuesday at 10 AM."
+
+## Important Notes for AI
+
+* **Current Date/Time:** Always be aware of the current date and time (which Vapi provides as `{{now}}`) when interpreting relative time expressions (e.g., "tomorrow", "next week").
+* **User Confirmation:** For critical actions like creating events, always seek explicit user confirmation before executing the tool.
+* **Clarification:** If any required parameter is missing or ambiguous, ask the user for clarification. Do not guess.
+* **Contextual Awareness:** Maintain conversational context to understand follow-up questions or corrections related to scheduling.
