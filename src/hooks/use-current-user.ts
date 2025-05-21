@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { createBrowserClient } from "@supabase/ssr";
-import type { User } from "@supabase/supabase-js";
+import { useEffect } from "react";
+import type { User, AuthChangeEvent } from "@supabase/supabase-js";
 import type { Profile } from "@prisma/client";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 type CurrentUserData = {
   user: User | null;
@@ -14,108 +15,85 @@ type CurrentUserData = {
 };
 
 export function useCurrentUser(): CurrentUserData {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const supabase = getSupabaseBrowserClient();
+  const queryClient = useQueryClient();
 
-  // Create the Supabase client
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const {
+    data: user,
+    isLoading: isUserLoading,
+    error: userError,
+    refetch: refetchUser,
+  } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return user;
+    },
+  });
 
-  const fetchUserData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Get current user from Supabase
-      const { data: userData, error: userError } =
-        await supabase.auth.getUser();
-
-      if (userError) {
-        throw userError;
-      }
-
-      if (userData?.user) {
-        setUser(userData.user);
-
-        // Fetch the user's profile from the API
-        const profileResponse = await fetch("/api/profile", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          // Include credentials to send cookies
-          credentials: "include",
-        });
-
-        if (!profileResponse.ok) {
-          // If profile not found, try to create one
-          if (profileResponse.status === 404) {
-            const createResponse = await fetch("/api/profile", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                userId: userData.user.id,
-                firstName: userData.user.user_metadata?.name || "",
-                lastName: "",
-                avatarUrl: userData.user.user_metadata?.avatar_url || "",
-              }),
-              credentials: "include",
-            });
-
-            if (createResponse.ok) {
-              const newProfileData = await createResponse.json();
-              setProfile(newProfileData);
-              return;
-            }
+  const {
+    data: profile,
+    isLoading: isProfileLoading,
+    error: profileError,
+  } = useQuery({
+    queryKey: ['userProfile', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const response = await fetch(`/api/profile/${user!.id}`, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          // If profile doesn't exist, create one
+          const createResponse = await fetch('/api/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user!.id,
+              firstName: user!.user_metadata?.name || '',
+              lastName: '',
+              avatarUrl: user!.user_metadata?.avatar_url || '',
+            }),
+            credentials: 'include',
+          });
+          
+          if (!createResponse.ok) {
+            throw new Error('Failed to create profile');
           }
-
-          console.error("Profile fetch error:", await profileResponse.text());
-          throw new Error("Failed to fetch profile");
+          const data = await createResponse.json();
+          return data.profile;
         }
-
-        const profileData = await profileResponse.json();
-        setProfile(profileData);
-      } else {
-        // No user is signed in
-        setUser(null);
-        setProfile(null);
+        throw new Error('Failed to fetch profile');
       }
-    } catch (err) {
-      console.error("Error fetching user data:", err);
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [supabase]);
+      const data = await response.json();
+      return data.profile;
+    },
+  });
 
+  // Listen for auth state changes
   useEffect(() => {
-    fetchUserData();
-
-    // Listen for auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          if (session) {
-            setUser(session.user);
-            fetchUserData();
-          }
-        } else if (event === "SIGNED_OUT") {
-          setUser(null);
-          setProfile(null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event: AuthChangeEvent) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          await queryClient.invalidateQueries({ queryKey: ['currentUser'] });
         }
       }
     );
 
     return () => {
-      authListener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, [supabase, fetchUserData]);
+  }, [queryClient, supabase.auth]);
 
-  return { user, profile, isLoading, error, refetch: fetchUserData };
+  return {
+    user: user ?? null,
+    profile: profile ?? null,
+    isLoading: isUserLoading || (!!user && isProfileLoading),
+    error: userError || profileError || null,
+    refetch: async () => {
+      await refetchUser();
+    },
+  };
 }

@@ -37,13 +37,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch profile function
   const fetchProfile = async (userId: string) => {
     try {
-      const response = await fetch(`/api/profile/${userId}`);
-      if (!response.ok) throw new Error("Failed to fetch profile");
+      console.log('Fetching profile for user:', userId);
+      const response = await fetch(`/api/profile/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Profile API response error:', response.status, errorText);
+        throw new Error('Failed to fetch profile');
+      }
+      
       const data = await response.json();
-      setProfile(data.profile);
+      console.log('Profile data received:', data);
+      setProfile(data);
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      console.error('Error fetching profile:', error);
       setProfile(null);
+      throw error;
     }
   };
 
@@ -83,15 +98,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router, supabase]);
 
   const signIn = async (email: string, password: string) => {
-    const { error, data } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-    if (data.user) {
-      await fetchProfile(data.user.id);
+    try {
+      setIsLoading(true);
+      console.log('Signing in user:', email);
+      
+      const { error, data } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        console.error('Supabase auth error:', error);
+        throw error;
+      }
+      
+      console.log('User authenticated successfully:', data.user.id);
+      
+      try {
+        await fetchProfile(data.user.id);
+        console.log('Profile set successfully');
+        router.push('/dashboard');
+      } catch (profileError) {
+        console.error('Profile error after authentication:', profileError);
+        // Even if profile fetch fails, we're still authenticated
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-    router.push("/dashboard");
   };
 
   const signUp = async (email: string, password: string) => {
