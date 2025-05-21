@@ -41,10 +41,12 @@ async function fetchCallDetails(id: string): Promise<Call> {
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: 'include',
   });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch call details");
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.message || 'Failed to fetch call details');
   }
 
   return response.json();
@@ -55,17 +57,23 @@ export function CallDetails({ call: initialCall, onClose }: CallDetailsProps) {
   const { toast } = useToast();
 
   // Set up query to fetch the latest call details
-  const { data: call, refetch } = useQuery({
+  const { data: call, refetch } = useQuery<Call>({
     queryKey: ["call", initialCall.id],
     queryFn: () => fetchCallDetails(initialCall.id),
     initialData: initialCall,
   });
 
   const handleRefresh = () => {
-    refetch();
+    refetch().catch((error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to refresh call details. Please try again.",
+        variant: "destructive",
+      });
+    });
     toast({
-      title: "Refreshed",
-      description: "Call details have been refreshed",
+      title: "Refreshing",
+      description: "Updating call details...",
     });
   };
 

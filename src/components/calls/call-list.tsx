@@ -30,6 +30,12 @@ interface Call {
   summary?: string | null;
   createdAt: string;
   updatedAt: string;
+  profile?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    role: string;
+  };
 }
 
 interface CallsResponse {
@@ -48,13 +54,30 @@ async function fetchCalls(page = 1, pageSize = 10): Promise<CallsResponse> {
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: 'include',
   });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch calls");
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.message || 'Failed to fetch calls');
   }
 
-  return response.json();
+  const data = await response.json();
+  
+  // Handle the case where the response is successful but no calls are found
+  if (!data.calls) {
+    return {
+      calls: [],
+      pagination: {
+        page,
+        pageSize,
+        totalPages: 1,
+        totalCalls: 0,
+      }
+    };
+  }
+
+  return data;
 }
 
 export function CallList() {
@@ -64,16 +87,22 @@ export function CallList() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<CallsResponse>({
     queryKey: ["calls", page, pageSize],
     queryFn: () => fetchCalls(page, pageSize),
   });
 
   const handleRefresh = () => {
-    refetch();
+    refetch().catch((error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to refresh calls. Please try again.",
+        variant: "destructive",
+      });
+    });
     toast({
-      title: "Refreshed",
-      description: "Call list has been refreshed",
+      title: "Refreshing",
+      description: "Updating call list...",
     });
   };
 
@@ -101,10 +130,12 @@ export function CallList() {
     );
   }
 
-  const { calls, pagination } = data || {
-    calls: [],
-    pagination: { page: 1, pageSize: 10, totalPages: 1, totalCalls: 0 },
+  const defaultData = {
+    calls: [] as Call[],
+    pagination: { page: 1, pageSize: 10, totalPages: 1, totalCalls: 0 }
   };
+
+  const { calls, pagination } = data || defaultData;
 
   const getStatusBadge = (status: string) => {
     switch (status) {

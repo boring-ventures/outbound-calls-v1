@@ -6,10 +6,10 @@ import { getRouteHandlerSupabase } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params: { userId } }: { params: { userId: string } }
 ) {
   try {
-    console.log('Profile API called for userId:', params.userId);
+    console.log('Profile API called for userId:', userId);
     
     const supabase = await getRouteHandlerSupabase();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -29,7 +29,7 @@ export async function GET(
       where: { userId: user.id },
     });
 
-    if (params.userId !== user.id && userProfile?.role !== 'SUPERADMIN') {
+    if (userId !== user.id && userProfile?.role !== 'SUPERADMIN') {
       console.error('Access forbidden: User trying to access another profile');
       return NextResponse.json(
         { error: 'Forbidden', message: 'Cannot access this profile' },
@@ -38,7 +38,7 @@ export async function GET(
     }
 
     const profile = await prisma.profile.findUnique({
-      where: { userId: params.userId },
+      where: { userId },
     });
 
     if (!profile) {
@@ -47,7 +47,7 @@ export async function GET(
       // If profile doesn't exist, create one with default values
       const newProfile = await prisma.profile.create({
         data: {
-          userId: params.userId,
+          userId,
           firstName: user.user_metadata?.first_name || '',
           lastName: user.user_metadata?.last_name || '',
           role: 'USER',
@@ -72,15 +72,18 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: Request,
-  { params }: { params: { userId: string } }
+  request: NextRequest,
+  { params: { userId } }: { params: { userId: string } }
 ) {
   try {
     const supabase = await getRouteHandlerSupabase();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     // Only allow users to update their own profile (or admin users to update any profile)
@@ -88,14 +91,17 @@ export async function PATCH(
       where: { userId: user.id },
     });
 
-    if (params.userId !== user.id && userProfile?.role !== 'SUPERADMIN') {
-      return new NextResponse('Forbidden', { status: 403 });
+    if (userId !== user.id && userProfile?.role !== 'SUPERADMIN') {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Cannot access this profile' },
+        { status: 403 }
+      );
     }
 
     const json = await request.json();
 
     const updatedProfile = await prisma.profile.update({
-      where: { userId: params.userId },
+      where: { userId },
       data: {
         firstName: json.firstName || undefined,
         lastName: json.lastName || undefined,
@@ -107,6 +113,9 @@ export async function PATCH(
     return NextResponse.json({ profile: updatedProfile });
   } catch (error) {
     console.error('Error updating profile:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal Server Error', message: 'Failed to update profile' },
+      { status: 500 }
+    );
   }
 }
